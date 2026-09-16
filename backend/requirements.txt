@@ -1,0 +1,42 @@
+# CPU-only PyTorch (Aapka 2GB+ size save karega)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.12.1+cpu
+torchvision==0.27.1+cpu
+
+# Core Web Framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+
+# Database & Auth
+SQLAlchemy==2.0.36
+PyMySQL==1.1.1
+pydantic
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+python-multipart==0.0.17
+email-validator==2.2.0
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+
+# Utilities & Data
+numpy==2.4.6
+Pillow==10.4.0
+requests==2.34.2
+httpx==0.28.1
+PyYAML==6.0.3
+psutil==7.2.2
+
+# ML / AI Inference
+transformers==5.12.1
+huggingface_hub==1.20.1
+tokenizers==0.22.2
+safetensors==0.8.0
+faiss-cpu==1.14.3
+ultralytics==8.4.75
+edge-tts==7.2.8
+
+# PDF Reports + Cloud Storage
+reportlab==5.0.1
+supabase==2.31.0

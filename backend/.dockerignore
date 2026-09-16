@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+temp_uploads/
+session_captures/
+session_reports/
+.git/
