@@ -1,163 +1,543 @@
-RoadGuard AI
-
-AI-powered real-time road condition monitoring â€” detects potholes from a live IP/USB camera feed, a browser device camera, or an uploaded video, then generates a cost-estimate PDF report that's stored in Supabase and emailed to the user.
-
-## âœ¨ Features
-
-- **Live pothole detection** via YOLOv11, from three sources:
-  - **IP/USB camera** â€” pulls an MJPEG/HTTP stream from a networked camera or phone (e.g. the *IP Webcam* Android app)
-  - **Device camera** â€” captures directly from the browser (`getUserMedia`), works from any device/network with zero extra setup
-  - **Video upload** â€” analyze a pre-recorded video file
-- **Automatic PDF report** â€” pothole count, dimensions, and an estimated maintenance cost per session
-- **Cloud storage** â€” reports are uploaded to Supabase Storage and a public link is generated
-- **Email delivery** â€” the report PDF is emailed to whichever user ran the session
-- **Interactive pothole map** â€” session results plotted on a map (Leaflet + OpenStreetMap reverse geocoding)
-- **Auth** â€” Supabase Auth (Google/email), with an optional SQL policy to restrict sign-ups to a specific email domain
-
-## ðŸ—ï¸ Architecture
-
-```
-Browser
-   â”‚  HTTPS (auto TLS via Caddy)
-   â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”   internal docker network   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Caddy  â”‚ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¶â”‚ frontend â”‚  (Next.js static export, served by nginx)
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”˜                             â””â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”˜
-                                             â”‚ /api, /ws  (nginx reverse proxy)
-                                             â–¼
-                                        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                                        â”‚ backend  â”‚  (FastAPI + YOLOv11, gunicorn/uvicorn)
-                                        â””â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”˜
-                                             â”‚
-                                  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                                  â–¼                      â–¼
-                             Supabase              Gmail SMTP
-                       (Auth + Storage)          (report emails)
-```
-
-- **Caddy** terminates HTTPS automatically (Let's Encrypt) so the browser can grant camera permissions â€” `getUserMedia` requires a secure context (HTTPS or `localhost`), so this is required for the Device Camera feature to work on any non-localhost deployment.
-- **nginx** (inside the frontend container) proxies `/api/*` and `/ws/*` to the backend, so the backend's port is never exposed to the internet directly.
-- **Backend** never needs a public port â€” only Caddy and nginx do.
-
-## ðŸ§° Tech stack
-
-| Layer | Tech |
-|---|---|
-| Frontend | Next.js (static export), React, Tailwind, Leaflet |
-| Backend | FastAPI, Gunicorn + Uvicorn workers, YOLOv11 (Ultralytics), OpenCV |
-| Reports | ReportLab (PDF generation) |
-| Storage/Auth | Supabase (Postgres, Storage, Auth) |
-| Email | Gmail SMTP |
-| Reverse proxy / TLS | nginx + Caddy |
-| Deployment | Docker Compose |
-
-## ðŸš€ Deployment (Docker Compose)
-
-### 1. Prerequisites
-
-- A VM (tested on Azure) with Docker + Docker Compose installed
-- Inbound ports **80** and **443** open on the VM's firewall/NSG (only these â€” the frontend and backend ports are not published to the host)
-- A Supabase project with:
-  - A **Storage bucket** (public) for PDF reports
-  - **Authentication â†’ URL Configuration** set to your deployed URL (see step 4)
-- A Gmail account with **2-Step Verification** enabled and an **App Password** generated for SMTP (a normal Gmail password will not work)
-
-### 2. Configure environment variables
-
-```bash
+🚧 RoadGuard AI
+AI-Powered Real-Time Road Condition Monitoring & Pothole Detection
+RoadGuard AI is an AI-powered road monitoring system that detects potholes in real time using YOLOv11.
+It supports live IP/USB cameras, browser-based device cameras, and uploaded videos. The system analyzes road conditions, estimates pothole dimensions and maintenance costs, generates a PDF inspection report, stores the report in Supabase Storage, and delivers it to the authenticated user's email.
+✨ Features
+🤖 Real-time pothole detection using YOLOv11
+📹 Multiple video input sources
+IP/USB camera
+Browser/device camera
+Uploaded video
+📐 Pothole detection and dimension estimation
+💰 Automatic maintenance cost estimation
+📄 Automatic PDF report generation
+☁️ Supabase Storage for report storage
+📧 Automated email delivery using Gmail SMTP
+🗺️ Interactive pothole map
+🔐 Supabase Authentication
+🔑 Google/Email authentication support
+🌐 HTTPS using Caddy + Let's Encrypt
+⚡ FastAPI backend
+🔄 WebSocket-based real-time communication
+🔀 nginx reverse proxy
+🐳 Dockerized deployment
+🚀 Docker Compose deployment
+☁️ Cloud VM deployment support
+🏗️ Architecture
+┌─────────────────────┐
+                         │       Browser       │
+                         │                     │
+                         │  Device Camera      │
+                         │  IP/USB Camera      │
+                         │  Video Upload       │
+                         └──────────┬──────────┘
+                                    │
+                                  HTTPS
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │       Caddy         │
+                         │ Reverse Proxy + TLS │
+                         │    Let's Encrypt    │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │      Frontend       │
+                         │ Next.js + React     │
+                         │ Tailwind + Leaflet  │
+                         │       nginx         │
+                         └──────────┬──────────┘
+                                    │
+                              /api + /ws
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │       Backend       │
+                         │ FastAPI + YOLOv11   │
+                         │ OpenCV + WebSockets │
+                         └──────────┬──────────┘
+                                    │
+                  ┌─────────────────┼─────────────────┐
+                  │                 │                 │
+                  ▼                 ▼                 ▼
+          ┌──────────────┐   ┌──────────────┐  ┌──────────────┐
+          │   Supabase   │   │ Gmail SMTP   │  │ PDF Report   │
+          │ Auth/Storage │   │    Email     │  │  ReportLab   │
+          └──────────────┘   └──────────────┘  └──────────────┘
+🧠 How It Works
+RoadGuard AI follows this workflow:
+Camera / Video Upload
+          ↓
+     Video Frames
+          ↓
+        OpenCV
+          ↓
+       YOLOv11
+          ↓
+   Pothole Detection
+          ↓
+ Count + Dimensions
+          ↓
+ Maintenance Cost
+          ↓
+    Session Report
+          ↓
+      PDF Report
+          ↓
+   Supabase Storage
+          ↓
+     Report URL
+          ↓
+     Email to User
+Step-by-Step
+Input Selection
+The user selects an IP/USB camera, browser device camera, or uploads a video.
+Video Processing
+The FastAPI backend receives/processes the video stream using OpenCV.
+AI Detection
+YOLOv11 analyzes video frames and detects potholes.
+Result Collection
+The system collects pothole count, dimensions, location/session information, and other detection results.
+Cost Estimation
+Based on the detected pothole information, the system calculates an estimated maintenance cost.
+PDF Generation
+A detailed session report is generated using ReportLab.
+Cloud Storage
+The generated PDF is uploaded to Supabase Storage.
+Email Delivery
+The report link/PDF is delivered to the authenticated user's email through Gmail SMTP.
+Map Visualization
+Session results can be displayed on an interactive Leaflet/OpenStreetMap map.
+🛠️ Tech Stack
+Layer
+Technology
+Frontend
+Next.js, React, Tailwind CSS
+Mapping
+Leaflet, OpenStreetMap
+Backend
+FastAPI, Python
+AI/ML
+YOLOv11, Ultralytics
+Computer Vision
+OpenCV
+Real-Time Communication
+WebSockets
+PDF Generation
+ReportLab
+Authentication
+Supabase Auth
+Database / Storage
+Supabase
+Email
+Gmail SMTP
+Frontend Server
+nginx
+Reverse Proxy
+Caddy
+TLS
+Let's Encrypt
+Containerization
+Docker
+Orchestration
+Docker Compose
+Deployment
+Azure VM / Cloud VM
+📁 Project Structure
+RoadGuardAI/
+│
+├── backend/
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── ...
+│
+├── frontend/
+│   ├── app/
+│   ├── nginx.conf
+│   ├── Dockerfile
+│   └── ...
+│
+├── Caddyfile
+├── docker-compose.yml
+├── .gitignore
+└── README.md
+🚀 Deployment
+Prerequisites
+Linux VM / Cloud VM
+Docker
+Docker Compose
+Public VM IP or domain
+Supabase project
+Gmail account
+Gmail 2-Step Verification
+Gmail App Password
+Open only these public ports:
+80   → HTTP
+443  → HTTPS
+The frontend and backend application ports do not need to be directly exposed to the internet.
+🔐 Environment Configuration
+Create the backend environment file:
 cp backend/.env.example backend/.env
+Create the frontend environment file:
 cp frontend/.env.example frontend/.env.local
-```
+Backend .env
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_service_role_key
+SUPABASE_BUCKET=pothole-reports
 
-Fill in `backend/.env`:
+SENDER_EMAIL=your_gmail@gmail.com
+SENDER_APP_PASSWORD=your_gmail_app_password
 
-| Variable | Description |
-|---|---|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_KEY` | Supabase **service_role** key (needed for Storage upload) |
-| `SUPABASE_BUCKET` | Storage bucket name (default: `pothole-reports`) |
-| `SENDER_EMAIL` | Gmail address reports are sent from |
-| `SENDER_APP_PASSWORD` | Gmail App Password â€” **paste it with no spaces** |
-| `SMTP_HOST` / `SMTP_PORT` | Defaults are correct for Gmail |
-
-Fill in `frontend/.env.local` with your Supabase project URL and anon key. The frontend does **not** need a backend URL configured â€” it talks to the backend via relative paths (`/api`, `/ws`), which work automatically on any domain/IP once deployed behind the reverse proxy.
-
-### 3. Point Caddy at your domain
-
-Edit `Caddyfile` and replace the hostname with your own domain, or with a free [nip.io](https://nip.io) address that maps straight to your VM's public IP (no domain purchase needed):
-
-```
-<your-vm-public-ip>.nip.io {
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+Variable
+Description
+SUPABASE_URL
+Supabase project URL
+SUPABASE_KEY
+Supabase service_role key
+SUPABASE_BUCKET
+Supabase Storage bucket name
+SENDER_EMAIL
+Gmail account used to send reports
+SENDER_APP_PASSWORD
+Gmail App Password
+SMTP_HOST
+Gmail SMTP host
+SMTP_PORT
+Gmail SMTP port
+⚠️ Security
+The Supabase service_role key must only be used on the backend.
+Never:
+❌ Commit it to GitHub
+❌ Put it in frontend environment variables
+❌ Expose it in browser code
+❌ Share it publicly
+Never commit:
+.env
+.env.local
+🌐 Caddy Configuration
+Example Caddyfile:
+your-vm-public-ip.nip.io {
     reverse_proxy frontend:100
 }
-```
-
-If your VM's public IP changes, update this file and run `docker compose up -d --build caddy`.
-
-### 4. Update Supabase Auth settings
-
-In **Supabase Dashboard â†’ Authentication â†’ URL Configuration**:
-
-- **Site URL**: `https://<your-vm-public-ip>.nip.io`
-- **Redirect URLs**: `https://<your-vm-public-ip>.nip.io/**`
-
-### 5. Build and run
-
-```bash
+Caddy provides automatic HTTPS using Let's Encrypt.
+🔑 Supabase Authentication
+Go to:
+Supabase Dashboard
+        ↓
+Authentication
+        ↓
+URL Configuration
+Set:
+Site URL:
+https://your-vm-public-ip.nip.io
+Add:
+https://your-vm-public-ip.nip.io/**
+to the allowed redirect URLs.
+🐳 Docker Compose Deployment
+Stop existing containers:
 docker compose down
+Build the images:
 docker compose build --no-cache
+Start the application:
 docker compose up -d
-```
-
-Check that everything came up cleanly:
-
-```bash
+Check containers:
 docker compose ps
-docker logs -f caddy-nitin     # should show a certificate obtained successfully
-docker logs -f back-nitin      # should show YOLO model loaded + Supabase/Email configured: True
-```
-
-Open `https://<your-vm-public-ip>.nip.io` in a browser.
-
-## ðŸ“¡ Using an external IP camera (drone/dedicated camera)
-
-The **"Start IP/USB Cam"** option pulls a stream directly from a camera's IP address, so the backend needs network-level reachability to that camera. On a cloud VM this generally means the camera and the VM must share a private network â€” a [Tailscale](https://tailscale.com) tailnet is a simple way to do this for a camera/drone you control:
-
-```
+📋 Logs
+Caddy
+docker logs -f caddy-nitin
+Backend
+docker logs -f back-nitin
+Frontend
+docker logs -f front-nitin
+🌍 Access the Application
+Open:
+https://your-vm-public-ip.nip.io
+🔀 Reverse Proxy Flow
+Internet
+   │
+   │ HTTPS :443
+   ▼
+┌─────────────┐
+│    Caddy    │
+│ TLS + Proxy │
+└──────┬──────┘
+       │
+       │ frontend:100
+       ▼
+┌─────────────┐
+│    nginx    │
+│  Frontend   │
+└──────┬──────┘
+       │
+       ├── /              → Next.js frontend
+       ├── /api/*         → FastAPI backend
+       └── /ws/*          → FastAPI WebSocket
+                                │
+                                ▼
+                         ┌─────────────┐
+                         │   FastAPI   │
+                         │   YOLOv11   │
+                         └─────────────┘
+The backend does not need a public host port.
+📹 Camera Support
+Device Camera
+The browser accesses the camera using:
+navigator.mediaDevices.getUserMedia()
+Supported devices include:
+Laptop Camera
+Phone Camera
+Tablet Camera
+USB Camera
+No VPN configuration is required.
+🔒 HTTPS Requirement
+Browser camera access requires a secure context.
+Production:
+https://your-domain.com
+Local development:
+http://localhost
+Caddy provides HTTPS for production deployments.
+📡 IP / USB Camera
+RoadGuard AI can process an IP camera stream.
+Example:
+http://<camera-ip>:8080/video
+A phone running an IP Webcam application can also provide an MJPEG/HTTP stream.
+🌐 Remote Camera with Tailscale
+When the backend is deployed on a cloud VM, the VM needs network access to the IP camera.
+Camera
+   │
+   │ Tailscale
+   ▼
+Cloud VM
+   │
+   ▼
+RoadGuard Backend
+Example:
 http://<camera-tailscale-ip>:8080/video
-```
+For regular users, the Device Camera option is simpler because users do not need VPN configuration.
+🎥 Video Upload
+Users can upload pre-recorded videos.
+Video File
+    ↓
+Frontend
+    ↓
+FastAPI
+    ↓
+OpenCV
+    ↓
+YOLOv11
+    ↓
+Pothole Detection
+    ↓
+Report Generation
+📄 PDF Report
+RoadGuard AI generates a PDF report after a completed monitoring session.
+The report can contain:
+RoadGuard AI Report
+────────────────────────
 
-This only really works for devices *you* control and add to your own tailnet â€” it isn't practical to ask every end user to join a VPN. For any regular user on their own device/network, use **"Use Device Camera"** instead: it captures the browser's camera directly (no VPN, no network setup, works over the public internet like any other website feature) and is the recommended option for a multi-user deployment.
+Session Information
+Pothole Count
+Pothole Dimensions
+Estimated Maintenance Cost
+Location Information
+Detection Results
 
-## ðŸ©º Troubleshooting
+────────────────────────
 
-| Symptom | Likely cause |
-|---|---|
-| "Use Device Camera" doesn't open | Site isn't served over HTTPS. `getUserMedia` requires a secure context â€” check the padlock icon in the address bar. |
-| Video upload fails / times out | Check `back-nitin` logs for a Gunicorn worker timeout; the Dockerfile sets `--timeout 600` for this reason. |
-| `GET /api/v1/...` returns 404 | Check `nginx.conf`'s `/api/` `proxy_pass` has **no trailing slash** after the port â€” a trailing slash strips the `/api` prefix before it reaches the backend. |
-| Email fails with `535 Username and Password not accepted` | The Gmail App Password is wrong/expired, or was pasted **with spaces**. Regenerate one at `myaccount.google.com/apppasswords` and paste it with no spaces. |
-| PDF/email/Supabase never happen | These only run when a session actually **ends** with detected potholes and a valid user email â€” check that the WebSocket disconnect / upload actually completed, and check `back-nitin` logs for `[Report]`, `[Email]`, and `[Supabase]` lines. |
-| Caddy container keeps restarting | Check `docker logs caddy-nitin` for a Caddyfile syntax error â€” validate the file matches the format shown in this README. |
-
-## ðŸ“ Project structure
-
-```
-RoadGuardAI/
-â”œâ”€â”€ backend/            FastAPI app, YOLO model, PDF/email/Supabase logic
-â”‚   â”œâ”€â”€ main.py
-â”‚   â”œâ”€â”€ requirements.txt
-â”‚   â””â”€â”€ Dockerfile
-â”œâ”€â”€ frontend/           Next.js app (static export)
-â”‚   â”œâ”€â”€ app/
-â”‚   â”œâ”€â”€ nginx.conf      Reverse proxy for /api and /ws
-â”‚   â””â”€â”€ dockerfile
-â”œâ”€â”€ Caddyfile            Automatic HTTPS reverse proxy in front of everything
-â””â”€â”€ docker-compose.yml
-```
-
-## ðŸ”’ Security notes
-
-- Never commit `.env` / `.env.local` â€” they're already in `.gitignore`.
-- Use the Supabase **service_role** key only on the backend â€” never ship it to the frontend.
-- If credentials are ever pasted into a chat, ticket, or shared document, rotate them afterwards.
+Generated by RoadGuard AI
+PDF reports are generated using ReportLab.
+☁️ Supabase Storage
+Generated PDF reports are uploaded to Supabase Storage.
+Example:
+Supabase
+   │
+   └── pothole-reports/
+          │
+          ├── report-session-001.pdf
+          ├── report-session-002.pdf
+          └── report-session-003.pdf
+📧 Email Delivery
+Monitoring Session
+       ↓
+Generate PDF
+       ↓
+Upload to Supabase
+       ↓
+Generate Report URL
+       ↓
+Send Email
+The report is sent to the authenticated user's email using Gmail SMTP.
+🔑 Gmail App Password
+Gmail SMTP requires an App Password.
+Google Account
+      ↓
+Enable 2-Step Verification
+      ↓
+Generate App Password
+      ↓
+Add App Password to backend/.env
+Do not use your normal Gmail password.
+🗺️ Interactive Pothole Map
+RoadGuard AI provides an interactive map for detected pothole locations.
+Technologies:
+Leaflet
+   +
+OpenStreetMap
+   +
+Reverse Geocoding
+🔐 Authentication
+RoadGuard AI uses Supabase Authentication.
+Supported methods can include:
+Email Authentication
+Google Authentication
+The authenticated user's email is used for report delivery.
+An optional SQL policy can be configured to restrict registration to a specific email domain.
+🧪 Troubleshooting
+Device Camera Does Not Open
+Make sure the website is running over HTTPS:
+https://your-domain.com
+Check the browser address bar for the secure connection indicator.
+Video Upload Fails or Times Out
+Check:
+docker logs -f back-nitin
+Video processing can take longer than normal API requests, so the backend uses an extended timeout.
+/api/v1/... Returns 404
+Check:
+frontend/nginx.conf
+Make sure the /api/ proxy configuration preserves the /api prefix when forwarding requests to FastAPI.
+Gmail Error
+If you see:
+535 Username and Password not accepted
+Check:
+✓ 2-Step Verification enabled
+✓ App Password generated
+✓ Correct Gmail address
+✓ Correct App Password
+✓ No spaces accidentally added
+PDF / Email / Supabase Report Not Generated
+Check:
+docker logs -f back-nitin
+Verify:
+✓ Potholes were detected
+✓ Session completed successfully
+✓ User email is available
+✓ Supabase credentials are correct
+✓ Gmail credentials are correct
+Caddy Container Keeps Restarting
+Check:
+docker logs caddy-nitin
+Verify the Caddyfile hostname and syntax.
+📊 Complete System Flow
+USER
+                         │
+                         ▼
+                  HTTPS Request
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │    Caddy    │
+                  │ TLS / Proxy │
+                  └──────┬──────┘
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │    nginx    │
+                  │  Next.js    │
+                  └──────┬──────┘
+                         │
+                    /api + /ws
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │   FastAPI   │
+                  │   Backend   │
+                  └──────┬──────┘
+                         │
+                       YOLOv11
+                         │
+                         ▼
+                  Pothole Detection
+                         │
+                         ▼
+                   Session Results
+                         │
+             ┌───────────┼───────────┐
+             │           │           │
+             ▼           ▼           ▼
+        PDF Report   Supabase    Gmail SMTP
+                        Storage
+             │           │           │
+             └───────────┴───────────┘
+                         │
+                         ▼
+                    User Report
+🎯 Project Highlights
+RoadGuard AI demonstrates practical implementation of:
+Artificial Intelligence
+Computer Vision
+YOLOv11 Object Detection
+Real-Time Video Processing
+FastAPI
+WebSockets
+Next.js
+React
+Supabase
+Cloud Storage
+SMTP Email Automation
+PDF Generation
+nginx
+Caddy
+HTTPS / TLS
+Docker
+Docker Compose
+Cloud VM Deployment
+Reverse Proxy Architecture
+Secure Environment Configuration
+🔮 Future Improvements
+📍 GPS-based pothole tracking
+📊 Admin analytics dashboard
+📈 Historical road-condition analysis
+🧠 Pothole severity classification
+🚗 Vehicle-mounted camera integration
+☁️ Cloud-based inference scaling
+🔔 Real-time severe pothole alerts
+🗃️ Location-based road-condition history
+📱 Dedicated mobile application
+🤖 Automated municipal maintenance workflow
+👨‍💻 Author
+Nitin Panwar
+B.Tech CSE Student | Cloud & DevOps Enthusiast
+Skills & Interests
+Cloud Computing
+DevOps
+Docker
+Kubernetes
+AWS
+CI/CD
+AI/ML Deployment
+Python
+FastAPI
+Linux
+⭐ RoadGuard AI
+AI-powered real-time pothole detection and road-condition monitoring.
+Built with:
+YOLOv11
+FastAPI
+Next.js
+React
+Supabase
+Docker
+Docker Compose
+nginx
+Caddy
+OpenCV
+ReportLab
+Gmail SMTP
+Leaflet
+OpenStreetMap
+📜 License
+This project is developed for educational, research, and demonstration purposes.
